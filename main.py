@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 from Controller.Controller import DiningController
 import os
 import sys
@@ -13,3 +14,6 @@ if __name__ == "__main__":
     
     app = DiningController(num_phil=5)
     app.start_simulation()
+=======
+
+>>>>>>> 4c6e6c2333d01ab6d8a18cb3aec9f6976f8dbcff
