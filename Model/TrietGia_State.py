@@ -1,6 +1,3 @@
-"""
-philosopher_state.py - Trạng thái và thống kê của triết gia
-"""
 
 import time
 from enum import Enum
@@ -16,18 +13,13 @@ class State(Enum):
 
 
 class Solution(Enum):
-    """Các giải pháp"""
     NAIVE               = "naive"
     RESOURCE_HIERARCHY  = "resource_hierarchy"
     ARBITRATOR          = "arbitrator"
     CHANDY_MISRA        = "chandy_misra"
-
-
 @dataclass
 class PhilosopherStats:
-    """
-    Thống kê của một triết gia
-    """
+
 
     ma_triet_gia: int
 
@@ -70,8 +62,6 @@ class PhilosopherStats:
             self._bat_dau_an = 0.0
 
         self.tong_so_lan_an += 1
-
-
     def thoi_gian_cho_hien_tai(self) -> float:
         if self._bat_dau_cho:
             return time.monotonic() - self._bat_dau_cho
