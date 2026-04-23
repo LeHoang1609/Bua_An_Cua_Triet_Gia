@@ -26,3 +26,6 @@ class Fork:
     def __repr__(self):
         state = f"held by P{self.held_by}" if self.is_held else "free"
         return f"Fork(id={self.fork_id}, {state}, dirty={self.dirty})"
+
+
+        âsdasd
