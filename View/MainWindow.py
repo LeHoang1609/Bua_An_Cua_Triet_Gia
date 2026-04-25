@@ -3,14 +3,18 @@ from tkinter import ttk
 import platform
 
 # ─────────────────────────────────────────────
-#  IMPORT CÁC MODULE GIAO DIỆN CON (ĐÃ SỬA THEO TÊN FILE CỦA BRO)
+#  IMPORT CÁC MODULE GIAO DIỆN CON
 # ─────────────────────────────────────────────
 try:
     from View.ViewTrietGia import ViewTrietGia
-    from View.View_cpu import ViewCPU       # <-- Đã đổi thành View_cpu
+    from View.View_cpu import ViewCPU       
+    from View.ViewBoNho import ViewBoNho    
+    from View.ViewTaskManger import ViewTaskManger  
 except ModuleNotFoundError:
     from ViewTrietGia import ViewTrietGia
-    from View_cpu import ViewCPU            # <-- Đã đổi thành View_cpu
+    from View_cpu import ViewCPU            
+    from ViewBoNho import ViewBoNho         
+    from ViewTaskManger import ViewTaskManger       
 
 # ─────────────────────────────────────────────
 #  1. DPI AWARENESS
@@ -45,7 +49,7 @@ TABS = [
     ("🍽️  Dining Philosophers", "ViewTrietGia"),
     ("⏱️  Điều phối CPU",        "ViewCPU"),
     ("🧠  Quản lý Bộ nhớ",        "ViewBoNho"),
-    ("🖥️  Quản lý Tác vụ",        "ViewTaskMgr"),
+    ("🖥️  Quản lý Tác vụ",        "ViewTaskManger"), 
 ]
 
 # ─────────────────────────────────────────────
@@ -176,7 +180,7 @@ class MainWindow:
         tk.Label(hdr, text="OS Simulator", font=FONT_APP, bg=BG_CARD, fg=PRIMARY,
                  padx=24).pack(side="left", fill="y")
 
-        tk.Label(hdr, text="Đồ án Hệ điều hành — Trực quan hoá thuật toán",
+        tk.Label(hdr, text="Hệ Thống Thông Tin - Đồ án Hệ điều hành",
                  font=FONT_NORMAL, bg=BG_CARD, fg=TEXT_SUB).pack(side="left", fill="y", pady=(4,0))
 
         tk.Frame(self.root, bg=BORDER, height=1).pack(fill="x")
@@ -207,17 +211,22 @@ class MainWindow:
         descs = {
             "ViewTrietGia": "", 
             "ViewCPU":      "", 
-            "ViewBoNho":    "Mô phỏng quá trình dịch địa chỉ luận lý sang vật lý. Trực quan hoá thuật toán thay thế trang (Page Replacement) FIFO & LRU.",
-            "ViewTaskMgr":  "Liệt kê các tiến trình đang hoạt động trong hệ thống. Theo dõi biểu đồ tài nguyên CPU/RAM và cho phép thao tác Kill process.",
+            "ViewBoNho":    "", 
+            "ViewTaskManger": "", 
         }
 
+        # Gắn các View thật vào giao diện
         for label, key in TABS:
             if key == "ViewTrietGia":
                 frame = ViewTrietGia(content)   
             elif key == "ViewCPU":
                 frame = ViewCPU(content)        
+            elif key == "ViewBoNho":            
+                frame = ViewBoNho(content)      
+            elif key == "ViewTaskManger":       
+                frame = ViewTaskManger(content)
             else:
-                frame = PlaceholderFrame(content, label, descs[key])
+                frame = PlaceholderFrame(content, label, descs.get(key, ""))
 
             frame.place(relwidth=1, relheight=1)
             self._frames[key] = frame
@@ -248,14 +257,13 @@ class MainWindow:
             
         self._current_key = key
         self._nav_buttons[key].set_active(True)
-        self._frames[key].lift()
+        self._frames[key].tkraise()
         
         label = next(l for l, k in TABS if k == key)
         self._lbl_status.config(text=f"Đang làm việc: {label}")
 
     def run(self):
         self.root.mainloop()
-
 
 if __name__ == "__main__":
     app = MainWindow()
