@@ -1,19 +1,4 @@
-"""
-ControllerCPU.py
-────────────────
-Cầu nối giữa ViewCPU và Model (GiaiThuat lập lịch).
 
-Trách nhiệm:
-  - Nhận list process (dict) và tên thuật toán từ View
-  - Chuyển đổi sang TienTrinh objects
-  - Gọi đúng hàm thuật toán trong Model
-  - Chuyển đổi KetQuaLapLich → định dạng gantt_data mà View.update_result() hiểu
-
-View.update_result() cần:
-  - gantt_data : list[{"pid", "start", "end"}]
-  - awt        : float  (average waiting time)
-  - atat       : float  (average turnaround time)
-"""
 
 import logging
 from Model.lap_lich.Tien_Trinh import TienTrinh, KetQuaTienTrinh, KhoangGantt
@@ -32,12 +17,7 @@ ALGO_MAP = {
 
 
 class ControllerCPU:
-    """
-    Controller cho module Lập lịch CPU.
 
-    Tham số:
-        view : instance của ViewCPU
-    """
 
     def __init__(self, view):
         self.view = view

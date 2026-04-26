@@ -1,16 +1,4 @@
-"""
-ControllerTrietGia.py
-─────────────────────
-Cầu nối giữa ViewTrietGia và Model (BanAnToi).
 
-Trách nhiệm:
-  - Nhận lệnh từ View (start, stop, step, reset)
-  - Ánh xạ tên giải pháp từ Combobox → GiaiPhap enum
-  - Gọi BanAnToi để điều khiển simulation
-  - Đẩy snapshot về View qua update_snapshot()
-
-Không biết gì về cách View vẽ canvas hay màu sắc.
-"""
 
 import threading
 import time

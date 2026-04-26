@@ -1,28 +1,12 @@
-"""
-ControllerTaskMgr.py
-────────────────────
-Cầu nối giữa ViewTaskManger và Model (QuetTienTrinh).
 
-Trách nhiệm:
-  - Thay thế vòng lặp giả lập trong ViewTaskManger bằng dữ liệu thật (psutil)
-  - Gọi lay_danh_sach() mỗi N ms để cập nhật bảng
-  - Gọi ket_thuc(pid) khi người dùng nhấn End Task
-  - Cập nhật dashboard CPU / RAM từ lay_thong_tin_he_thong()
-
-Lưu ý:
-  ViewTaskManger đang tự chạy animate_stats() với dữ liệu giả lập.
-  Controller này sẽ được gắn vào sau khi View đã khởi tạo xong,
-  thay thế vòng lặp giả lập bằng cách override kill_selected
-  và bổ sung vòng lặp refresh thật.
-"""
 
 import logging
 from Model.he_thong.QuetTienTrinh import lay_danh_sach, ket_thuc, lay_thong_tin_he_thong, ThongTinTienTrinh
 
 logger = logging.getLogger(__name__)
 
-REFRESH_MS   = 1500   # Cập nhật mỗi 1.5 giây
-MAX_PROCESS  = 50     # Số tiến trình tối đa hiển thị
+REFRESH_MS   = 1500   
+MAX_PROCESS  = 50     
 
 
 class ControllerTaskMgr:

@@ -1,21 +1,4 @@
-"""
-ControllerBoNho.py
-──────────────────
-Cầu nối giữa ViewBoNho và Model (bo_nho).
 
-Trách nhiệm:
-  - Nhận chuỗi trang, số frame, tên thuật toán từ View
-  - Gọi fifo() / lru() / optimal() từ Model
-  - Chuyển KetQuaThayTrang → cấu trúc View có thể vẽ grid
-  - Cập nhật lbl_faults và bảng grid từng bước (step mode)
-
-ViewBoNho cần được cập nhật:
-  - lbl_faults.config(text=...)
-  - Vẽ lại table_frame (grid ô vuông)
-
-Lưu ý: ViewBoNho chưa bind command cho các nút.
-Controller sẽ bind sau khi được gắn vào View.
-"""
 
 import logging
 from Model.bo_nho.ThayThuaTrang import fifo, lru, optimal, KetQuaThayTrang, BuocThayTrang
@@ -36,12 +19,7 @@ ALGO_MAP = {
 
 
 class ControllerBoNho:
-    """
-    Controller cho module Bộ nhớ / Thay thế trang.
-
-    Tham số:
-        view : instance của ViewBoNho
-    """
+    
 
     def __init__(self, view):
         self.view            = view
