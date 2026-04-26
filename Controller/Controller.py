@@ -1,5 +1,5 @@
-from Model.Model import Philosopher, Fork
-from View.View import PhilosopherView
+from Model.triet_gia.TrietGia import Philosopher, Fork
+from View.ViewTrietGia import PhilosopherView
 import time
 
 class DiningController:
