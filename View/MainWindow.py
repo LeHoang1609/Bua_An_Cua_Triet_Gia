@@ -3,15 +3,21 @@ from tkinter import ttk
 import platform
 
 # ─────────────────────────────────────────────
-#  IMPORT VIEW THẬT (Xử lý linh hoạt đường dẫn)
+#  IMPORT CÁC MODULE GIAO DIỆN CON
 # ─────────────────────────────────────────────
 try:
     from View.ViewTrietGia import ViewTrietGia
+    from View.View_cpu import ViewCPU       
+    from View.ViewBoNho import ViewBoNho    
+    from View.ViewTaskManger import ViewTaskManger  
 except ModuleNotFoundError:
     from ViewTrietGia import ViewTrietGia
+    from View_cpu import ViewCPU            
+    from ViewBoNho import ViewBoNho         
+    from ViewTaskManger import ViewTaskManger       
 
 # ─────────────────────────────────────────────
-#  1. DPI AWARENESS (CHỐNG MỜ CHỮ TRÊN WINDOWS)
+#  1. DPI AWARENESS
 # ─────────────────────────────────────────────
 try:
     from ctypes import windll
@@ -20,7 +26,7 @@ except Exception:
     pass
 
 # ─────────────────────────────────────────────
-#  2. PALETTE & CONSTANTS (CHUẨN ACADEMIC UI)
+#  2. PALETTE & CONSTANTS
 # ─────────────────────────────────────────────
 BG_MAIN    = "#f8fafc"      
 BG_SIDEBAR = "#e2e8f0"      
@@ -43,7 +49,7 @@ TABS = [
     ("🍽️  Dining Philosophers", "ViewTrietGia"),
     ("⏱️  Điều phối CPU",        "ViewCPU"),
     ("🧠  Quản lý Bộ nhớ",        "ViewBoNho"),
-    ("🖥️  Quản lý Tác vụ",        "ViewTaskMgr"),
+    ("🖥️  Quản lý Tác vụ",        "ViewTaskManger"), 
 ]
 
 # ─────────────────────────────────────────────
@@ -52,7 +58,6 @@ TABS = [
 def apply_global_style(root: tk.Tk):
     style = ttk.Style(root)
     style.theme_use("clam")
-    
     style.configure("Primary.TButton",
         background=PRIMARY, foreground="white",
         font=FONT_NORMAL, padding=(20, 8), borderwidth=0
@@ -105,7 +110,7 @@ class NavButton(tk.Frame):
             self._lbl.config(bg=BG_SIDEBAR, fg=TEXT_MAIN, font=FONT_NORMAL)
 
 # ─────────────────────────────────────────────
-#  5. CARD PLACEHOLDER (CHỈ DÙNG CHO CÁC TAB CHƯA LÀM)
+#  5. CARD PLACEHOLDER
 # ─────────────────────────────────────────────
 class PlaceholderFrame(tk.Frame):
     def __init__(self, parent, title, desc, **kw):
@@ -127,10 +132,7 @@ class PlaceholderFrame(tk.Frame):
         center.pack(expand=True)
 
         tk.Label(center, text="📦", font=("Segoe UI", 48), bg=BG_CARD, fg=PRIMARY).pack(pady=(0, 16))
-        
-        tk.Label(center, text=title, font=("Segoe UI", 16, "bold"),
-                 bg=BG_CARD, fg=TEXT_MAIN).pack(pady=(0, 8))
-                 
+        tk.Label(center, text=title, font=("Segoe UI", 16, "bold"), bg=BG_CARD, fg=TEXT_MAIN).pack(pady=(0, 8))
         tk.Label(center, text=desc, font=FONT_NORMAL, bg=BG_CARD, fg=TEXT_SUB,
                  wraplength=450, justify="center").pack(pady=(0, 24))
 
@@ -138,7 +140,7 @@ class PlaceholderFrame(tk.Frame):
         btn.pack()
 
 # ─────────────────────────────────────────────
-#  6. MAIN WINDOW & BỐ CỤC (LAYOUT)
+#  6. MAIN WINDOW & BỐ CỤC
 # ─────────────────────────────────────────────
 class MainWindow:
     def __init__(self):
@@ -160,7 +162,6 @@ class MainWindow:
         self._build_body()
         self._build_status()
         
-        # Mặc định mở tab đầu tiên khi khởi động app
         self._switch(TABS[0][1])
 
     def _center_window(self):
@@ -179,7 +180,7 @@ class MainWindow:
         tk.Label(hdr, text="OS Simulator", font=FONT_APP, bg=BG_CARD, fg=PRIMARY,
                  padx=24).pack(side="left", fill="y")
 
-        tk.Label(hdr, text="Đồ án Hệ điều hành — Trực quan hoá thuật toán",
+        tk.Label(hdr, text="Hệ Thống Thông Tin - Đồ án Hệ điều hành",
                  font=FONT_NORMAL, bg=BG_CARD, fg=TEXT_SUB).pack(side="left", fill="y", pady=(4,0))
 
         tk.Frame(self.root, bg=BORDER, height=1).pack(fill="x")
@@ -208,18 +209,24 @@ class MainWindow:
         content.pack(side="left", fill="both", expand=True)
 
         descs = {
-            "ViewTrietGia": "", # Đã có class riêng, không cần desc
-            "ViewCPU":      "Nhập danh sách các tiến trình, vẽ biểu đồ Gantt. Tự động tính toán thời gian chờ & đáp ứng theo các thuật toán FCFS, SJF, Priority, RR.",
-            "ViewBoNho":    "Mô phỏng quá trình dịch địa chỉ luận lý sang vật lý. Trực quan hoá thuật toán thay thế trang (Page Replacement) FIFO & LRU.",
-            "ViewTaskMgr":  "Liệt kê các tiến trình đang hoạt động trong hệ thống. Theo dõi biểu đồ tài nguyên CPU/RAM và cho phép thao tác Kill process.",
+            "ViewTrietGia": "", 
+            "ViewCPU":      "", 
+            "ViewBoNho":    "", 
+            "ViewTaskManger": "", 
         }
 
-        # KHÚC QUAN TRỌNG: FIX LỖI Ở ĐÂY
+        # Gắn các View thật vào giao diện
         for label, key in TABS:
             if key == "ViewTrietGia":
-                frame = ViewTrietGia(content)   # Dùng view thật
+                frame = ViewTrietGia(content)   
+            elif key == "ViewCPU":
+                frame = ViewCPU(content)        
+            elif key == "ViewBoNho":            
+                frame = ViewBoNho(content)      
+            elif key == "ViewTaskManger":       
+                frame = ViewTaskManger(content)
             else:
-                frame = PlaceholderFrame(content, label, descs[key])
+                frame = PlaceholderFrame(content, label, descs.get(key, ""))
 
             frame.place(relwidth=1, relheight=1)
             self._frames[key] = frame
@@ -238,32 +245,25 @@ class MainWindow:
         py_ver  = platform.python_version()
         os_info = f"{platform.system()} {platform.release()}"
 
-        tk.Label(status_bar, text=os_info, font=FONT_SMALL,
-                 bg=BG_SIDEBAR, fg=TEXT_SUB, padx=16).pack(side="right", fill="y")
+        tk.Label(status_bar, text=os_info, font=FONT_SMALL, bg=BG_SIDEBAR, fg=TEXT_SUB, padx=16).pack(side="right", fill="y")
         tk.Frame(status_bar, bg=BORDER, width=1).pack(side="right", fill="y", pady=6)
-        tk.Label(status_bar, text=f"Python {py_ver}", font=FONT_SMALL,
-                 bg=BG_SIDEBAR, fg=TEXT_SUB, padx=16).pack(side="right", fill="y")
+        tk.Label(status_bar, text=f"Python {py_ver}", font=FONT_SMALL, bg=BG_SIDEBAR, fg=TEXT_SUB, padx=16).pack(side="right", fill="y")
 
-    # ── navigation ───────────────────────────
     def _switch(self, key: str):
-        if self._current_key == key:
-            return
+        if self._current_key == key: return
         if self._current_key:
             self._nav_buttons[self._current_key].set_active(False)
             self._frames[self._current_key].lower()
             
         self._current_key = key
         self._nav_buttons[key].set_active(True)
-        
-        # Kéo frame hiển thị lên trên cùng
-        self._frames[key].lift()
+        self._frames[key].tkraise()
         
         label = next(l for l, k in TABS if k == key)
         self._lbl_status.config(text=f"Đang làm việc: {label}")
 
     def run(self):
         self.root.mainloop()
-
 
 if __name__ == "__main__":
     app = MainWindow()
