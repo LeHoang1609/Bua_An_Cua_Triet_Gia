@@ -215,10 +215,11 @@ class ViewTrietGia(tk.Frame):
             self.lbl_status.config(text="Trạng thái: Đang chạy (Auto)", fg="#3498db")
             if self.controller:
                 self.controller.start_simulation(self.cbb_giaiphap.get())
-            else: self.loop_demo()
+            else:
+                self.loop_demo()
 
     def step_forward(self):
-        self.running = False # Tạm dừng chế độ Auto (nếu đang chạy)
+        self.running = False
         self.lbl_status.config(text="Trạng thái: Chạy từng bước", fg="#2ecc71")
         if self.controller:
             self.controller.step_simulation(self.cbb_giaiphap.get())
@@ -228,10 +229,14 @@ class ViewTrietGia(tk.Frame):
     def stop(self):
         self.running = False
         self.lbl_status.config(text="Trạng thái: Đã tạm dừng", fg="#e74c3c")
+        if self.controller:
+            self.controller.stop_simulation()
 
     def reset(self):
         self.running = False
         self.lbl_status.config(text="Trạng thái: Sẵn sàng", fg="#3498db")
+        if self.controller:
+            self.controller.reset_simulation()
         self.update_snapshot(["thinking"]*5, [0]*5, [0]*5)
 
     def single_step_demo(self):
