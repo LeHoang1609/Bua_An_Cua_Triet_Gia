@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 GIAI_PHAP_MAP = {
     "Không tránh deadlock": GiaiPhap.NAIVE,
     "Semaphore":            GiaiPhap.SEMAPHORE,
-    "Monitor":              GiaiPhap.SEMAPHORE,    # Monitor ~ Semaphore trong model
+    "Monitor":              GiaiPhap.MONITOR,      # ← Sửa: Monitor thực sự
     "Bất đối xứng":         GiaiPhap.THU_TU_DUA,
 }
 
@@ -23,19 +23,17 @@ TRANG_THAI_MAP = {
     TrangThai.BI_DEADLOCK: "blocked",
 }
 
-# Ngưỡng thời gian chờ để chuyển sang "starving" (giây)
-STARVING_NGUONG = 6.0
+# Ngưỡng thời gian chờ hiện tại để chuyển sang "starving" (giây)
+STARVING_NGUONG = 3.0
 
 
 class ControllerTrietGia:
-    """
-    Controller cho module Triết gia.
-    """
 
     def __init__(self, view):
         self.view      = view
-        self.ban_an    = None  
-        self._push_job = None     # after() job ID đang chạy
+        self.ban_an    = None
+        self._push_job     = None
+        self._push_running = False    # ← chống tạo nhiều push job chồng nhau
 
     # ── Lệnh từ View ─────────────────────────────────────────────────────
 
@@ -47,53 +45,53 @@ class ControllerTrietGia:
                 return
             self._stop_model()
 
+        # Reset View về trạng thái sạch trước khi chạy mới
+        try:
+            self.view.update_snapshot(["thinking"] * 5, [0] * 5, [0] * 5, 0)
+        except Exception:
+            pass
+
         self.ban_an = BanAnToi(
             so_triet_gia=5,
             giai_phap=giai_phap,
-            toc_do=1.5,
+            toc_do=1.0,
         )
         self.ban_an.dang_ky_thay_doi(self._on_model_change)
         self.ban_an.bat_dau()
 
         logger.info(f"Bắt đầu: {ten_giai_phap}")
-        # Dùng hàm của luồng chính thay vì Thread riêng
         self._bat_dau_push_ui()
 
     def step_simulation(self, ten_giai_phap: str):
-        """
-        View gọi khi nhấn ⏭ Bước.
-        Chạy model 1 giây rồi tạm dừng, đẩy 1 snapshot về View (Bảo đảm Thread-Safe).
-        """
         giai_phap = self._map_giai_phap(ten_giai_phap)
 
-        # Khởi tạo nếu chưa có hoặc sai giải pháp
         if not self.ban_an or self.ban_an.giai_phap != giai_phap:
             if self.ban_an:
                 self._stop_model()
+            try:
+                self.view.update_snapshot(["thinking"] * 5, [0] * 5, [0] * 5, 0)
+            except Exception:
+                pass
             self.ban_an = BanAnToi(
                 so_triet_gia=5,
                 giai_phap=giai_phap,
-                toc_do=3.0,   # chạy nhanh hơn để thấy thay đổi ngay
+                toc_do=3.0,
             )
             self.ban_an.dang_ky_thay_doi(self._on_model_change)
             self.ban_an.bat_dau()
 
-        # Cho model chạy một lát ở luồng ngầm...
         def _run_step():
             time.sleep(0.8)
-            # ... sau đó ủy quyền cho luồng UI đẩy giao diện
             self.view.after(0, self._push_snapshot)
 
         threading.Thread(target=_run_step, daemon=True).start()
 
     def stop_simulation(self):
-        """View gọi khi nhấn ⏸ Dừng."""
         self._dung_push_ui()
         if self.ban_an:
             self.ban_an.tam_dung()
 
     def reset_simulation(self):
-        """View gọi khi nhấn 🔄 Reset."""
         self._dung_push_ui()
         self._stop_model()
 
@@ -101,15 +99,16 @@ class ControllerTrietGia:
 
     def _bat_dau_push_ui(self):
         self._dung_push_ui()
+        self._push_running = True
         self.view.after(100, self._schedule_push)
 
     def _schedule_push(self):
-        """Lên lịch push tiếp theo (chạy trên main thread qua after())."""
-        if self.ban_an and self.ban_an.dang_chay:
+        if self.ban_an and self.ban_an.dang_chay and self._push_running:
             self._push_snapshot()
             self._push_job = self.view.after(500, self._schedule_push)
 
     def _dung_push_ui(self):
+        self._push_running = False
         if self._push_job:
             self.view.after_cancel(self._push_job)
             self._push_job = None
@@ -117,46 +116,47 @@ class ControllerTrietGia:
     # ── Callback từ Model ─────────────────────────────────────────────────
 
     def _on_model_change(self):
-        # Không làm gì — để _schedule_push tự cập nhật định kỳ
         pass
 
     # ── Đẩy snapshot về View ─────────────────────────────────────────────
 
     def _push_snapshot(self):
-        """Lấy snapshot từ Model và gọi View.update_snapshot()."""
         if not self.ban_an:
             return
 
-        snap = self.ban_an.lay_snapshot()
+        snap    = self.ban_an.lay_snapshot()
         tg_list = snap["triet_gia"]
+        cho_hien_tai = snap.get("triet_gia_cho_hien_tai", [0] * 5)
 
-        # Chuyển đổi trạng thái
         states        = []
         wait_times    = []
-        stolen_counts = []   # Model chưa có "bị cướp", dùng số deadlock escape
+        stolen_counts = []
 
-        for tg in tg_list:
+        for i, tg in enumerate(tg_list):
             state_raw = tg["trang_thai"]
 
-            # Tìm ngược TrangThai enum từ value string
             trang_thai_enum = next(
                 (t for t in TrangThai if t.value == state_raw),
                 TrangThai.DANG_NGHI
             )
 
-            # Kiểm tra starving: đang đợi quá lâu
             state_ui = TRANG_THAI_MAP.get(trang_thai_enum, "thinking")
+
+            # Starving: dùng thời gian chờ HIỆN TẠI (tính từ lúc bắt đầu đợi đũa)
             if state_ui == "hungry":
-                wait = tg["tong_thoi_gian_cho"]
-                if wait > STARVING_NGUONG:
+                current_wait = cho_hien_tai[i] if i < len(cho_hien_tai) else 0
+                if current_wait > STARVING_NGUONG:
                     state_ui = "starving"
 
             states.append(state_ui)
-            wait_times.append(round(tg["tong_thoi_gian_cho"], 1))
-            stolen_counts.append(0)   # mở rộng sau
+            # Hiển thị TG Chờ tích lũy (tổng các lần đã chờ thành công)
+            wait_times.append(tg["tong_thoi_gian_cho"])
+            stolen_counts.append(tg["so_lan_bi_preempt"])   # ← Sửa: dùng giá trị thực
+
+        so_deadlock = snap.get("so_deadlock", 0)
 
         try:
-            self.view.update_snapshot(states, wait_times, stolen_counts)
+            self.view.update_snapshot(states, wait_times, stolen_counts, so_deadlock)
         except Exception as e:
             logger.error(f"Lỗi update_snapshot: {e}")
 
