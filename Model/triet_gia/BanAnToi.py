@@ -1,4 +1,3 @@
-
 import threading
 import time
 import logging
@@ -38,7 +37,7 @@ class BanAnToi:
             TrietGia(i, self, giai_phap) for i in range(so_triet_gia)
         ]
 
-        self.dang_chay    = False
+        self.dang_chay     = False
         self.dang_tam_dung = False
         self.thoi_gian_bat_dau: float | None = None
 
@@ -65,7 +64,7 @@ class BanAnToi:
         )
 
     def dung(self):
-        """Dừng tất cả thread và chờ chúng kết thúc."""
+        """Dừng tất cả thread và KHÔNG chờ luồng con kết thúc (Tránh Freeze UI)."""
         if not self.dang_chay:
             return
 
@@ -75,9 +74,8 @@ class BanAnToi:
         for tg in self.triet_gia:
             tg.dung()
 
-        for tg in self.triet_gia:
-            tg.join(timeout=3.0)
-
+        # Đã loại bỏ vòng lặp tg.join(timeout=3.0) ở đây để tránh treo UI
+        
         logger.info("BanAnToi đã dừng.")
 
     def tam_dung(self):
@@ -96,8 +94,8 @@ class BanAnToi:
         Sau khi dat_lai(), gọi bat_dau() để chạy lại.
         """
         self.dung()
-        n   = so_triet_gia or self.so_triet_gia
-        gp  = giai_phap    or self.giai_phap
+        n  = so_triet_gia or self.so_triet_gia
+        gp = giai_phap    or self.giai_phap
         self.__init__(n, gp, self.toc_do)
         logger.info(f"Đặt lại: {n} triết gia, giải pháp = {gp.value}")
 
