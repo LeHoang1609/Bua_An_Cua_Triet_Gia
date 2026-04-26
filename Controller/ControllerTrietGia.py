@@ -1,5 +1,3 @@
-
-
 import threading
 import time
 import logging
@@ -32,14 +30,11 @@ STARVING_NGUONG = 6.0
 class ControllerTrietGia:
     """
     Controller cho module Triết gia.
-
-    Tham số:
-        view : instance của ViewTrietGia
     """
 
     def __init__(self, view):
         self.view      = view
-        self.ban_an: None
+        self.ban_an    = None  
         self._push_job = None     # after() job ID đang chạy
 
     # ── Lệnh từ View ─────────────────────────────────────────────────────
@@ -56,18 +51,18 @@ class ControllerTrietGia:
             so_triet_gia=5,
             giai_phap=giai_phap,
             toc_do=1.5,
-    )
+        )
         self.ban_an.dang_ky_thay_doi(self._on_model_change)
         self.ban_an.bat_dau()
 
         logger.info(f"Bắt đầu: {ten_giai_phap}")
-    # Gọi _schedule_push sau 100ms để đảm bảo mainloop đang chạy
-        self.view.after(100, self._schedule_push)
+        # Dùng hàm của luồng chính thay vì Thread riêng
+        self._bat_dau_push_ui()
 
     def step_simulation(self, ten_giai_phap: str):
         """
         View gọi khi nhấn ⏭ Bước.
-        Chạy model 1 giây rồi tạm dừng, đẩy 1 snapshot về View.
+        Chạy model 1 giây rồi tạm dừng, đẩy 1 snapshot về View (Bảo đảm Thread-Safe).
         """
         giai_phap = self._map_giai_phap(ten_giai_phap)
 
@@ -83,10 +78,11 @@ class ControllerTrietGia:
             self.ban_an.dang_ky_thay_doi(self._on_model_change)
             self.ban_an.bat_dau()
 
-        # Cho model chạy 0.8s rồi đẩy snapshot
+        # Cho model chạy một lát ở luồng ngầm...
         def _run_step():
             time.sleep(0.8)
-            self._push_snapshot()
+            # ... sau đó ủy quyền cho luồng UI đẩy giao diện
+            self.view.after(0, self._push_snapshot)
 
         threading.Thread(target=_run_step, daemon=True).start()
 
@@ -121,7 +117,7 @@ class ControllerTrietGia:
     # ── Callback từ Model ─────────────────────────────────────────────────
 
     def _on_model_change(self):
-    # Không làm gì — để _schedule_push tự cập nhật định kỳ
+        # Không làm gì — để _schedule_push tự cập nhật định kỳ
         pass
 
     # ── Đẩy snapshot về View ─────────────────────────────────────────────

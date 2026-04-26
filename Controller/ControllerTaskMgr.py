@@ -1,20 +1,16 @@
-
-
 import logging
+import threading
 from Model.he_thong.QuetTienTrinh import lay_danh_sach, ket_thuc, lay_thong_tin_he_thong, ThongTinTienTrinh
 
 logger = logging.getLogger(__name__)
 
 REFRESH_MS   = 1500   
-MAX_PROCESS  = 50     
+MAX_PROCESS  = 50    
 
 
 class ControllerTaskMgr:
     """
     Controller cho module Task Manager.
-
-    Tham số:
-        view : instance của ViewTaskManger
     """
 
     def __init__(self, view):
@@ -78,40 +74,49 @@ class ControllerTaskMgr:
             self.view.after_cancel(self._refresh_job)
             self._refresh_job = None
 
-    # ── Cập nhật định kỳ ─────────────────────────────────────────────────
+    # ── Cập nhật định kỳ (Background Worker) ─────────────────────────────
 
     def _cap_nhat(self):
-        """Lấy dữ liệu thật từ Model và đẩy lên View."""
-        try:
-            self._cap_nhat_dashboard()
-            self._cap_nhat_bang()
-        except Exception as e:
-            logger.error(f"Lỗi refresh TaskMgr: {e}")
-        finally:
-            # Lên lịch lần kế tiếp
-            self._refresh_job = self.view.after(REFRESH_MS, self._cap_nhat)
+        """Lấy dữ liệu thật từ Model (Background) và đẩy lên View (Main Thread)."""
+        
+        def worker_fetch_data():
+            try:
+                # Chạy ngầm psutil để quét hệ thống
+                thong_tin = lay_thong_tin_he_thong()
+                ds = lay_danh_sach(
+                    sap_xep_theo="cpu",
+                    giam_dan=True,
+                    gioi_han=MAX_PROCESS,
+                )
+                
+                # Gọi luồng chính (Main Thread) để vẽ dữ liệu
+                self.view.after(0, lambda: self._apply_data_to_ui(thong_tin, ds))
+            except Exception as e:
+                logger.error(f"Lỗi refresh TaskMgr: {e}")
 
-    def _cap_nhat_dashboard(self):
-        """Cập nhật thanh CPU và RAM tổng."""
-        try:
-            thong_tin = lay_thong_tin_he_thong()
+        # Tạo và khởi chạy Thread để nó không khóa giao diện
+        threading.Thread(target=worker_fetch_data, daemon=True).start()
 
+        # Lên lịch lần kế tiếp
+        self._refresh_job = self.view.after(REFRESH_MS, self._cap_nhat)
+
+    def _apply_data_to_ui(self, thong_tin, ds):
+        """Luồng chính thực thi việc cập nhật giao diện"""
+        try:
+            # 1. Cập nhật Dashboard
             cpu_pct = thong_tin["cpu_tong"]
             ram_pct = thong_tin["ram_phan_tram"]
             ram_mb  = thong_tin["ram_dung_mb"]
             ram_total = thong_tin["ram_tong_mb"]
 
-            # Cập nhật label
             self.view.lbl_cpu.config(text=f"CPU: {cpu_pct}%")
             self.view.lbl_ram.config(
                 text=f"RAM: {ram_mb:.0f} MB / {ram_total:.0f} MB"
             )
 
-            # Cập nhật progress bar
             self.view.bar_cpu["value"] = min(100, cpu_pct)
             self.view.bar_ram["value"] = min(100, ram_pct)
 
-            # Đổi màu progress bar theo mức độ
             cpu_style = (
                 "Danger" if cpu_pct > 80
                 else "Warn" if cpu_pct > 50
@@ -122,67 +127,43 @@ class ControllerTaskMgr:
                 else "Warn" if ram_pct > 60
                 else "Safe"
             )
-            self.view.bar_cpu.config(
-                style=f"{cpu_style}.Horizontal.TProgressbar"
-            )
-            self.view.bar_ram.config(
-                style=f"{ram_style}.Horizontal.TProgressbar"
-            )
-        except Exception as e:
-            logger.warning(f"Không cập nhật được dashboard: {e}")
+            self.view.bar_cpu.config(style=f"{cpu_style}.Horizontal.TProgressbar")
+            self.view.bar_ram.config(style=f"{ram_style}.Horizontal.TProgressbar")
 
-    def _cap_nhat_bang(self):
-        """Cập nhật bảng danh sách tiến trình."""
-        try:
-            ds = lay_danh_sach(
-                sap_xep_theo="cpu",
-                giam_dan=True,
-                gioi_han=MAX_PROCESS,
-            )
-        except Exception as e:
-            logger.warning(f"Không lấy được danh sách tiến trình: {e}")
-            return
+            # 2. Cập nhật Bảng (Treeview)
+            pid_moi = {p.pid for p in ds}
 
-        # Lấy tập PID hiện có trong bảng
-        pid_trong_bang = set(
-            int(self.view.tree.item(iid)["values"][0])
-            for iid in self.view.tree.get_children()
-            if self.view.tree.item(iid)["values"]
-        )
-        pid_moi = {p.pid for p in ds}
+            for iid in list(self.view.tree.get_children()):
+                try:
+                    pid = int(self.view.tree.item(iid)["values"][0])
+                    if pid not in pid_moi:
+                        self.view.tree.delete(iid)
+                except Exception:
+                    continue
 
-        # Xóa tiến trình đã kết thúc
-        for iid in list(self.view.tree.get_children()):
-            try:
-                pid = int(self.view.tree.item(iid)["values"][0])
-                if pid not in pid_moi:
-                    self.view.tree.delete(iid)
-            except Exception:
-                continue
-
-        # Thêm mới hoặc cập nhật
-        for p in ds:
-            iid = str(p.pid)
-            values = (
-                p.pid,
-                p.ten,
-                f"{p.cpu:.1f}%",
-                f"{p.ram_mb:.1f} MB",
-                p.trang_thai,
-            )
-            # Tags màu
-            bg_tag = (
-                "danger_cpu" if p.cpu > 70
-                else "warn_cpu" if p.cpu > 40
-                else ""
-            )
-            fg_tag = p.trang_thai.lower()
-
-            if self.view.tree.exists(iid):
-                self.view.tree.item(iid, values=values, tags=(bg_tag, fg_tag))
-            else:
-                self.view.tree.insert(
-                    "", "end", iid=iid,
-                    values=values,
-                    tags=(bg_tag, fg_tag),
+            for p in ds:
+                iid = str(p.pid)
+                values = (
+                    p.pid,
+                    p.ten,
+                    f"{p.cpu:.1f}%",
+                    f"{p.ram_mb:.1f} MB",
+                    p.trang_thai,
                 )
+                bg_tag = (
+                    "danger_cpu" if p.cpu > 70
+                    else "warn_cpu" if p.cpu > 40
+                    else ""
+                )
+                fg_tag = p.trang_thai.lower()
+
+                if self.view.tree.exists(iid):
+                    self.view.tree.item(iid, values=values, tags=(bg_tag, fg_tag))
+                else:
+                    self.view.tree.insert(
+                        "", "end", iid=iid,
+                        values=values,
+                        tags=(bg_tag, fg_tag),
+                    )
+        except Exception as e:
+            logger.error(f"Lỗi khi update UI TaskMgr: {e}")

@@ -3,18 +3,20 @@ from tkinter import ttk
 import platform
 
 # ─────────────────────────────────────────────
-#  IMPORT CÁC MODULE GIAO DIỆN CON
+#  IMPORT CÁC MODULE GIAO DIỆN CON VÀ CONTROLLER
 # ─────────────────────────────────────────────
 try:
     from View.ViewTrietGia import ViewTrietGia
     from View.View_cpu import ViewCPU       
     from View.ViewBoNho import ViewBoNho    
     from View.ViewTaskManger import ViewTaskManger  
+    from Controller.ControllerTrietGia import ControllerTrietGia  # <--- ĐÃ THÊM IMPORT
 except ModuleNotFoundError:
     from ViewTrietGia import ViewTrietGia
     from View_cpu import ViewCPU            
     from ViewBoNho import ViewBoNho         
     from ViewTaskManger import ViewTaskManger       
+    from ControllerTrietGia import ControllerTrietGia             # <--- ĐÃ THÊM IMPORT
 
 # ─────────────────────────────────────────────
 #  1. DPI AWARENESS
@@ -219,6 +221,12 @@ class MainWindow:
         for label, key in TABS:
             if key == "ViewTrietGia":
                 frame = ViewTrietGia(content)   
+                
+                # <--- ĐÃ THÊM LOGIC GẮN CONTROLLER TẠI ĐÂY --->
+                controller_tg = ControllerTrietGia(frame)
+                frame.controller = controller_tg
+                # <-------------------------------------------->
+
             elif key == "ViewCPU":
                 frame = ViewCPU(content)        
             elif key == "ViewBoNho":            
