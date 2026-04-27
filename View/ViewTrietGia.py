@@ -163,6 +163,12 @@ class ViewTrietGia(tk.Frame):
         self.canvas.bind("<Configure>", self._on_canvas_resize)
 
     def _on_canvas_resize(self, event):
+        # CHẶN VÒNG LẶP VẼ VÔ TẬN GÂY LAG UI
+        if hasattr(self, '_last_w') and self._last_w == event.width and getattr(self, '_last_h', 0) == event.height:
+            return  
+        self._last_w = event.width
+        self._last_h = event.height
+
         self.canvas.delete("all")
         self.cx = event.width  // 2
         self.cy = event.height // 2
@@ -268,13 +274,16 @@ class ViewTrietGia(tk.Frame):
                     stolen_counts[i]
                 ))
 
-        # Màu đũa: xanh khi đang ăn, xám khi rảnh
+        # --- BƯỚC 1: RESET TẤT CẢ ĐŨA VỀ MÀU XÁM ---
+        for i in range(5):
+            self.canvas.itemconfig(self.forks[i], fill="#bdc3c7")
+
+        # --- BƯỚC 2: TÔ XANH 2 ĐŨA CHO NHỮNG NGƯỜI ĐANG ĂN ---
         for i in range(5):
             if states[i] == "eating":
-                self.canvas.itemconfig(self.forks[i],        fill=STATE_COLORS["eating"])
+                self.canvas.itemconfig(self.forks[i], fill=STATE_COLORS["eating"])
                 self.canvas.itemconfig(self.forks[(i - 1) % 5], fill=STATE_COLORS["eating"])
-            else:
-                self.canvas.itemconfig(self.forks[i], fill="#bdc3c7")
+        # ------------------------------------------
 
         # Cập nhật bộ đếm deadlock
         self.lbl_deadlock.config(text=str(so_deadlock))

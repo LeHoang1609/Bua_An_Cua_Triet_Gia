@@ -19,6 +19,9 @@ class ViewBoNho(tk.Frame):
         super().__init__(parent, bg=BG_MAIN, **kw)
         self.controller = controller
         
+        # Biến cực kỳ quan trọng để chống lag: Lưu trữ Label để tái sử dụng
+        self.cells = {} 
+        
         self._build_ui()
         self._render_fake_data()
 
@@ -92,48 +95,36 @@ class ViewBoNho(tk.Frame):
         table_container = tk.Frame(self.visual_card, bg=BG_CARD)
         table_container.pack(fill="both", expand=True, padx=15, pady=(0, 15))
 
-        # Cấu hình grid để Canvas chiếm hết không gian
         table_container.rowconfigure(0, weight=1)
         table_container.columnconfigure(0, weight=1)
 
-        # Canvas chứa bảng
         self.canvas_scroll = tk.Canvas(table_container, bg=BG_CARD, highlightthickness=0)
         self.canvas_scroll.grid(row=0, column=0, sticky="nsew")
 
-        # ── Thanh cuộn dọc (mới thêm) ──────────────────────────────────
         vbar = ttk.Scrollbar(table_container, orient="vertical", command=self.canvas_scroll.yview)
         vbar.grid(row=0, column=1, sticky="ns")
 
-        # ── Thanh cuộn ngang ────────────────────────────────────────────
         hbar = ttk.Scrollbar(table_container, orient="horizontal", command=self.canvas_scroll.xview)
         hbar.grid(row=1, column=0, sticky="ew")
 
-        # Kết nối cả hai thanh cuộn vào Canvas
-        self.canvas_scroll.config(
-            xscrollcommand=hbar.set,
-            yscrollcommand=vbar.set
-        )
+        self.canvas_scroll.config(xscrollcommand=hbar.set, yscrollcommand=vbar.set)
 
-        # Frame thực sự chứa Grid bảng
         self.table_frame = tk.Frame(self.canvas_scroll, bg=BG_CARD)
         self.canvas_window = self.canvas_scroll.create_window((0, 0), window=self.table_frame, anchor="nw")
 
-        # Cập nhật scrollregion khi nội dung thay đổi
         self.table_frame.bind(
             "<Configure>",
             lambda e: self.canvas_scroll.config(scrollregion=self.canvas_scroll.bbox("all"))
         )
 
-        # Hỗ trợ cuộn bằng chuột (scroll dọc)
         self.canvas_scroll.bind("<Enter>", self._bind_mousewheel)
         self.canvas_scroll.bind("<Leave>", self._unbind_mousewheel)
 
     # ── Cuộn chuột ──────────────────────────────────────────────────────
-
     def _bind_mousewheel(self, event):
-        self.canvas_scroll.bind_all("<MouseWheel>", self._on_mousewheel)          # Windows
-        self.canvas_scroll.bind_all("<Button-4>",   self._on_mousewheel_linux)    # Linux scroll up
-        self.canvas_scroll.bind_all("<Button-5>",   self._on_mousewheel_linux)    # Linux scroll down
+        self.canvas_scroll.bind_all("<MouseWheel>", self._on_mousewheel)          
+        self.canvas_scroll.bind_all("<Button-4>",   self._on_mousewheel_linux)    
+        self.canvas_scroll.bind_all("<Button-5>",   self._on_mousewheel_linux)    
 
     def _unbind_mousewheel(self, event):
         self.canvas_scroll.unbind_all("<MouseWheel>")
@@ -150,7 +141,52 @@ class ViewBoNho(tk.Frame):
             self.canvas_scroll.yview_scroll(1, "units")
 
     # ==========================================
-    # 🧠 FAKE DATA ĐỂ RENDER TRƯỚC UI
+    # KHỞI TẠO LƯỚI ĐỂ CHỐNG LAG
+    # ==========================================
+    def prepare_grid(self, n_rows, n_cols):
+        """Khởi tạo toàn bộ label 1 lần duy nhất, tránh dùng widget.destroy()"""
+        # Dọn dẹp bảng cũ nếu có
+        for widget in self.table_frame.winfo_children():
+            widget.destroy()
+        self.cells.clear()
+
+        # 1. Hàng tiêu đề (Reference)
+        tk.Label(self.table_frame, text="Reference", width=12, bg=BG_MAIN, 
+                 font=("Segoe UI", 9, "bold"), fg=TEXT_MAIN).grid(row=0, column=0, padx=5, pady=2, sticky="nsew")
+        
+        for j in range(n_cols):
+            lbl = tk.Label(self.table_frame, text="-", width=4, height=2, bg=BG_MAIN, 
+                           font=("Segoe UI", 11, "bold"), fg=PRIMARY, borderwidth=1, relief="solid")
+            lbl.grid(row=0, column=j+1, padx=2, pady=2, sticky="nsew")
+            self.cells[f"h_{j}"] = lbl
+
+        # 2. Các hàng Frame
+        for i in range(n_rows):
+            tk.Label(self.table_frame, text=f"Frame {i}", width=12, bg=BG_CARD, 
+                     font=("Segoe UI", 9, "bold"), fg=TEXT_MAIN).grid(row=i+1, column=0, padx=5, pady=2, sticky="nsew")
+            
+            for j in range(n_cols):
+                lbl = tk.Label(self.table_frame, text="-", width=4, height=2, bg="white", 
+                               font=("Segoe UI", 11), fg=TEXT_MAIN, borderwidth=1, relief="solid")
+                lbl.grid(row=i+1, column=j+1, padx=2, pady=2, sticky="nsew")
+                self.cells[f"{i}_{j}"] = lbl
+
+        # 3. Hàng trạng thái (Status)
+        tk.Label(self.table_frame, text="Status", width=12, bg=BG_CARD, 
+                 font=("Segoe UI", 9, "bold"), fg=TEXT_MAIN).grid(row=n_rows+1, column=0, padx=5, pady=(15, 2), sticky="nsew")
+        
+        for j in range(n_cols):
+            lbl = tk.Label(self.table_frame, text="-", width=4, height=1, bg="#f1f5f9", fg="white", 
+                           font=("Segoe UI", 10, "bold"), borderwidth=1, relief="solid")
+            lbl.grid(row=n_rows+1, column=j+1, padx=2, pady=(15, 2), sticky="nsew")
+            self.cells[f"s_{j}"] = lbl
+
+        # Cập nhật scrollregion
+        self.table_frame.update_idletasks()
+        self.canvas_scroll.config(scrollregion=self.canvas_scroll.bbox("all"))
+
+    # ==========================================
+    # DỮ LIỆU FAKE ĐỂ TEST GIAO DIỆN
     # ==========================================
     def _render_fake_data(self):
         self.status = tk.Label(self, text=" Sẵn sàng chờ cấu hình...", anchor="w", 
@@ -161,50 +197,26 @@ class ViewBoNho(tk.Frame):
         matrix = [
             [7, 7, 7, 2, 2, 2, 2, 4, 4, 4],
             ["", 0, 0, 0, 0, 3, 3, 3, 2, 2],
-            ["", "", 1, 1, 1, 1, 0, 0, 0, 3],
-            ["", "", "", "", "", "", "", "", "", ""],
-            ["", "", "", "", "", "", "", "", "", ""],
-            ["", "", "", "", "", "", "", "", "", ""],
-            ["", "", "", "", "", "", "", "", "", ""],
-            ["", "", "", "", "", "", "", "", "", ""],
-            ["", "", "", "", "", "", "", "", "", ""],
-            ["", "", "", "", "", "", "", "", "", ""],
+            ["", "", 1, 1, 1, 1, 0, 0, 0, 3]
         ]
         faults = ["F", "F", "F", "F", "H", "F", "F", "F", "F", "F"]
 
-        for widget in self.table_frame.winfo_children():
-            widget.destroy()
+        # Gọi hàm tạo grid
+        self.prepare_grid(len(matrix), len(seq))
 
-        # Hàng tiêu đề
-        tk.Label(self.table_frame, text="Reference", width=12, bg=BG_MAIN, 
-                 font=("Segoe UI", 9, "bold"), fg=TEXT_MAIN).grid(row=0, column=0, padx=5, pady=2, sticky="nsew")
-        
+        # Đổ dữ liệu fake bằng config() (tái sử dụng widget)
         for j, val in enumerate(seq):
-            lbl = tk.Label(self.table_frame, text=str(val), width=4, height=2, bg=BG_MAIN, 
-                           font=("Segoe UI", 11, "bold"), fg=PRIMARY, borderwidth=1, relief="solid")
-            lbl.grid(row=0, column=j+1, padx=2, pady=2, sticky="nsew")
-
-        # Các hàng Frame
+            self.cells[f"h_{j}"].config(text=str(val))
+        
         for i, row in enumerate(matrix):
-            tk.Label(self.table_frame, text=f"Frame {i}", width=12, bg=BG_CARD, 
-                     font=("Segoe UI", 9, "bold"), fg=TEXT_MAIN).grid(row=i+1, column=0, padx=5, pady=2, sticky="nsew")
-            
             for j, val in enumerate(row):
                 txt = str(val) if val != "" else "–"
                 color_fg = TEXT_MAIN if val != "" else TEXT_SUB
-                lbl = tk.Label(self.table_frame, text=txt, width=4, height=2, bg="white", 
-                               font=("Segoe UI", 11), fg=color_fg, borderwidth=1, relief="solid")
-                lbl.grid(row=i+1, column=j+1, padx=2, pady=2, sticky="nsew")
+                self.cells[f"{i}_{j}"].config(text=txt, fg=color_fg)
 
-        # Hàng trạng thái
-        tk.Label(self.table_frame, text="Status", width=12, bg=BG_CARD, 
-                 font=("Segoe UI", 9, "bold"), fg=TEXT_MAIN).grid(row=len(matrix)+1, column=0, padx=5, pady=(15, 2), sticky="nsew")
-        
         for j, val in enumerate(faults):
             color_bg = "#ff4757" if val == "F" else "#2ed573"
-            lbl = tk.Label(self.table_frame, text=val, width=4, height=1, bg=color_bg, fg="white", 
-                           font=("Segoe UI", 10, "bold"), borderwidth=1, relief="solid")
-            lbl.grid(row=len(matrix)+1, column=j+1, padx=2, pady=(15, 2), sticky="nsew")
+            self.cells[f"s_{j}"].config(text=val, bg=color_bg)
 
-        self.lbl_faults.config(text="Page Faults: 6  (60.0%)")
-        self.status.config(text=" Đã tải Fake Data mẫu thành công. Bảng đã được căn giữa và thêm thanh cuộn!")
+        self.lbl_faults.config(text="Page Faults: 9")
+        self.status.config(text=" Đã tải Fake Data mẫu. Chống giật lag UI đã được kích hoạt!")

@@ -46,7 +46,7 @@ class TrietGia(threading.Thread):
 
         self.so_bua_an            = 0
         self.tong_thoi_gian_cho   = 0.0
-        self.so_lan_bi_preempt    = 0      # ← MỚI: đếm số lần bị timeout/cướp đũa
+        self.so_lan_bi_preempt    = 0      # ← đếm số lần bị timeout/cướp đũa
         self._thoi_diem_doi       = 0.0
 
         self._stop_event = threading.Event()
@@ -121,7 +121,10 @@ class TrietGia(threading.Thread):
         self._doi_trang_thai(TrangThai.BI_DEADLOCK)
         self.ban_an.so_deadlock += 1
         self.ban_an.thong_bao_thay_doi()
-        logger.warning(f"TrietGia {self.ma} DEADLOCK → thả đũa {self.dua_trai}")
+        
+        # --- ĐÃ SỬA: TẮT DÒNG LOG NÀY ĐỂ MÁY KHÔNG BỊ LAG ---
+        # logger.warning(f"TrietGia {self.ma} DEADLOCK → thả đũa {self.dua_trai}")
+        # ----------------------------------------------------
 
         self._stop_event.wait(timeout=random.uniform(0.1, 0.5) / self.ban_an.toc_do)
         return False
@@ -219,7 +222,7 @@ class TrietGia(threading.Thread):
             "trang_thai":           self.trang_thai.value,
             "so_bua_an":            self.so_bua_an,
             "tong_thoi_gian_cho":   round(self.tong_thoi_gian_cho, 2),
-            "so_lan_bi_preempt":    self.so_lan_bi_preempt,   # ← MỚI
+            "so_lan_bi_preempt":    self.so_lan_bi_preempt,   
             "dua_trai":             self.dua_trai,
             "dua_phai":             self.dua_phai,
         }
