@@ -1,5 +1,3 @@
-
-
 import logging
 from Model.bo_nho.ThayThuaTrang import fifo, lru, optimal, KetQuaThayTrang, BuocThayTrang
 
@@ -20,7 +18,6 @@ ALGO_MAP = {
 
 class ControllerBoNho:
     
-
     def __init__(self, view):
         self.view            = view
         self._ket_qua: KetQuaThayTrang | None = None
@@ -38,18 +35,6 @@ class ControllerBoNho:
         Controller tìm và bind vào đây.
         """
         try:
-            btn_frame = None
-            # Tìm frame chứa các nút trong visual_card
-            for widget in self.view.winfo_children():
-                for child in widget.winfo_children():
-                    if hasattr(child, 'winfo_children'):
-                        children = child.winfo_children()
-                        # Frame chứa 3 Button liên tiếp
-                        btns = [w for w in children if isinstance(w, __import__('tkinter').Button)]
-                        if len(btns) >= 3:
-                            btn_frame = children
-                            break
-
             # Bind theo text nút
             import tkinter as tk
             def _find_buttons(widget):
@@ -164,11 +149,13 @@ class ControllerBoNho:
             text=f"Page Faults: {so_fault}  ({ty_le}%)"
         )
 
-    # ── Vẽ bảng grid ─────────────────────────────────────────────────────
+    # ── Vẽ bảng grid (Đã Tối Ưu Chống Lag) ───────────────────────────────
 
     def _xoa_bang(self):
+        """Xóa sạch bảng khi người dùng nhấn Reset"""
         for w in self.view.table_frame.winfo_children():
             w.destroy()
+        self.view.cells.clear()
 
     def _ve_bang_rong(self, ket_qua: KetQuaThayTrang):
         """Vẽ khung bảng chỉ có header (chuỗi tham chiếu)."""
@@ -180,90 +167,51 @@ class ControllerBoNho:
 
     def _ve_bang_den_buoc(self, ket_qua: KetQuaThayTrang, den_buoc: int):
         """
-        Vẽ lại bảng grid đến bước thứ `den_buoc`.
-        Cấu trúc bảng:
-            Hàng 0 : "Reference"  | trang[0] | trang[1] | ...
-            Hàng 1 : "Frame 0"    | ô[0][0]  | ô[0][1]  | ...
-            Hàng 2 : "Frame 1"    | ...
-            ...
-            Hàng N : "Status"     | F/H      | F/H      | ...
+        Cập nhật dữ liệu vào lưới có sẵn (chống lag).
+        Không dùng destroy() để tránh rò rỉ bộ nhớ.
         """
-        import tkinter as tk
-
-        self._xoa_bang()
-
-        tf    = self.view.table_frame
-        chuoi = ket_qua.chuoi_trang
-        buocs = ket_qua.buoc[:den_buoc]
-        n_col = len(chuoi)
         n_frame = ket_qua.so_frame
+        n_col = len(ket_qua.chuoi_trang)
+        
+        # Chỉ khởi tạo lại lưới Label nếu lưới hiện tại không khớp kích thước
+        # (VD: Người dùng đổi số Frame hoặc thêm bớt chuỗi tham chiếu)
+        if not self.view.cells or f"{n_frame-1}_{n_col-1}" not in self.view.cells:
+            self.view.prepare_grid(n_frame, n_col)
 
-        CELL_W = 4
-        CELL_H = 2
-        HDR_W  = 12
-
-        # ── Hàng tiêu đề: chuỗi tham chiếu ──────────────────────────────
-        tk.Label(tf, text="Reference", width=HDR_W,
-                 bg="#f1f5f9", font=("Segoe UI", 9, "bold"),
-                 fg="#2f3542").grid(row=0, column=0, padx=3, pady=3, sticky="nsew")
-
-        for j, trang in enumerate(chuoi):
-            # Tô màu cột đang là bước hiện tại
+        # 1. Cập nhật Header
+        for j, trang in enumerate(ket_qua.chuoi_trang):
             bg = "#dbeafe" if j == den_buoc - 1 else "#f8fafc"
-            tk.Label(tf, text=str(trang), width=CELL_W, height=CELL_H,
-                     bg=bg, font=("Segoe UI", 11, "bold"),
-                     fg="#2563eb", borderwidth=1, relief="solid"
-                     ).grid(row=0, column=j + 1, padx=2, pady=2, sticky="nsew")
+            self.view.cells[f"h_{j}"].config(text=str(trang), bg=bg)
 
-        # ── Hàng frame ────────────────────────────────────────────────────
+        # 2. Cập nhật Frames
         for fi in range(n_frame):
-            tk.Label(tf, text=f"Frame {fi}", width=HDR_W,
-                     bg="#ffffff", font=("Segoe UI", 9, "bold"),
-                     fg="#2f3542").grid(row=fi + 1, column=0, padx=3, pady=2, sticky="nsew")
-
             for j in range(n_col):
-                if j < len(buocs):
-                    buoc  = buocs[j]
-                    val   = buoc.frames[fi]
-                    txt   = str(val) if val is not None else "–"
+                val = "–"
+                bg_cell = COLOR_NORMAL
+                fg_cell = "#94a3b8"
+
+                if j < den_buoc:
+                    buoc = ket_qua.buoc[j]
+                    v = buoc.frames[fi]
+                    if v is not None:
+                        val = str(v)
+                        fg_cell = "#1e293b"
+                    
                     # Tô vàng ô vừa bị thay
-                    if buoc.page_fault and buoc.trang_bi_thay == val:
+                    if buoc.page_fault and buoc.trang_bi_thay == v:
                         bg_cell = COLOR_REPLACED
-                    else:
-                        bg_cell = COLOR_NORMAL
-                    fg_cell = "#1e293b" if val is not None else "#94a3b8"
-                else:
-                    txt     = "–"
-                    bg_cell = COLOR_NORMAL
-                    fg_cell = "#94a3b8"
 
-                tk.Label(tf, text=txt, width=CELL_W, height=CELL_H,
-                         bg=bg_cell, font=("Segoe UI", 11),
-                         fg=fg_cell, borderwidth=1, relief="solid"
-                         ).grid(row=fi + 1, column=j + 1, padx=2, pady=2, sticky="nsew")
+                self.view.cells[f"{fi}_{j}"].config(text=val, bg=bg_cell, fg=fg_cell)
 
-        # ── Hàng trạng thái Hit / Fault ───────────────────────────────────
-        row_status = n_frame + 1
-        tk.Label(tf, text="Status", width=HDR_W,
-                 bg="#ffffff", font=("Segoe UI", 9, "bold"),
-                 fg="#2f3542").grid(row=row_status, column=0, padx=3, pady=(12, 2), sticky="nsew")
-
+        # 3. Cập nhật Status Hit/Fault
         for j in range(n_col):
-            if j < len(buocs):
-                val    = "F" if buocs[j].page_fault else "H"
-                bg_sts = COLOR_FAULT if val == "F" else COLOR_HIT
-            else:
-                val    = ""
-                bg_sts = "#f1f5f9"
+            txt = ""
+            bg_sts = "#f1f5f9"
+            fg_sts = "#1e293b"
 
-            tk.Label(tf, text=val, width=CELL_W, height=1,
-                     bg=bg_sts, fg="white",
-                     font=("Segoe UI", 10, "bold"),
-                     borderwidth=1, relief="solid"
-                     ).grid(row=row_status, column=j + 1, padx=2, pady=(12, 2), sticky="nsew")
+            if j < den_buoc:
+                txt = "F" if ket_qua.buoc[j].page_fault else "H"
+                bg_sts = COLOR_FAULT if txt == "F" else COLOR_HIT
+                fg_sts = "white"
 
-        # Cập nhật scrollregion
-        tf.update_idletasks()
-        self.view.canvas_scroll.config(
-            scrollregion=self.view.canvas_scroll.bbox("all")
-        )
+            self.view.cells[f"s_{j}"].config(text=txt, bg=bg_sts, fg=fg_sts)

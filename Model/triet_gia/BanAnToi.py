@@ -1,4 +1,3 @@
-
 import threading
 import time
 import logging
@@ -32,28 +31,31 @@ class BanAnToi:
             ChiecDua(i) for i in range(so_triet_gia)
         ]
 
+        # Semaphore: tối đa N-1 người được ngồi cùng lúc
         self.quan_gia = threading.Semaphore(so_triet_gia - 1)
+
+        # Monitor: Condition Variable dùng chung cho tất cả triết gia
+        self.monitor_condition = threading.Condition(threading.Lock())
 
         self.triet_gia: list[TrietGia] = [
             TrietGia(i, self, giai_phap) for i in range(so_triet_gia)
         ]
 
-        self.dang_chay    = False
+        self.dang_chay     = False
         self.dang_tam_dung = False
         self.thoi_gian_bat_dau: float | None = None
 
-        self.so_deadlock   = 0   
+        self.so_deadlock = 0
 
         self._callback_thay_doi: Callable | None = None
 
     def bat_dau(self):
-        """Khởi động tất cả các thread triết gia."""
         if self.dang_chay:
             logger.warning("Simulation đang chạy, bỏ qua lệnh bat_dau.")
             return
 
-        self.dang_chay        = True
-        self.dang_tam_dung    = False
+        self.dang_chay         = True
+        self.dang_tam_dung     = False
         self.thoi_gian_bat_dau = time.monotonic()
 
         for tg in self.triet_gia:
@@ -65,7 +67,6 @@ class BanAnToi:
         )
 
     def dung(self):
-        """Dừng tất cả thread và chờ chúng kết thúc."""
         if not self.dang_chay:
             return
 
@@ -75,44 +76,37 @@ class BanAnToi:
         for tg in self.triet_gia:
             tg.dung()
 
-        for tg in self.triet_gia:
-            tg.join(timeout=3.0)
+        # Notify monitor condition để các thread đang wait() thoát ra
+        if self.giai_phap == GiaiPhap.MONITOR:
+            with self.monitor_condition:
+                self.monitor_condition.notify_all()
 
         logger.info("BanAnToi đã dừng.")
 
     def tam_dung(self):
-        """Tạm dừng simulation (thread đang chờ lock sẽ không bị ảnh hưởng)."""
         self.dang_tam_dung = True
         logger.info("BanAnToi tạm dừng.")
 
     def tiep_tuc(self):
-        """Tiếp tục sau khi tạm dừng."""
         self.dang_tam_dung = False
         logger.info("BanAnToi tiếp tục.")
 
     def dat_lai(self, so_triet_gia: int = None, giai_phap: GiaiPhap = None):
-        """
-        Dừng và khởi tạo lại với cấu hình mới.
-        Sau khi dat_lai(), gọi bat_dau() để chạy lại.
-        """
         self.dung()
-        n   = so_triet_gia or self.so_triet_gia
-        gp  = giai_phap    or self.giai_phap
+        n  = so_triet_gia or self.so_triet_gia
+        gp = giai_phap    or self.giai_phap
         self.__init__(n, gp, self.toc_do)
         logger.info(f"Đặt lại: {n} triết gia, giải pháp = {gp.value}")
 
     def dat_toc_do(self, toc_do: float):
-        """Thay đổi tốc độ mô phỏng (áp dụng ngay)."""
         if toc_do <= 0:
             raise ValueError("toc_do phải > 0")
         self.toc_do = toc_do
 
     def dang_ky_thay_doi(self, callback: Callable):
-        """Controller đăng ký để nhận thông báo mỗi khi trạng thái thay đổi."""
         self._callback_thay_doi = callback
 
     def thong_bao_thay_doi(self):
-        """Gọi từ bên trong Model khi có thay đổi đáng chú ý."""
         if self._callback_thay_doi:
             try:
                 self._callback_thay_doi()
@@ -120,11 +114,6 @@ class BanAnToi:
                 logger.error(f"Lỗi callback: {e}")
 
     def lay_snapshot(self) -> dict:
-        """
-        Trả về dict mô tả toàn bộ trạng thái hiện tại.
-        Controller và View dùng dict này để hiển thị — không truy cập
-        trực tiếp vào object bên trong Model.
-        """
         da_chay = self.thoi_gian_bat_dau is not None
         thoi_gian_chay = (
             round(time.monotonic() - self.thoi_gian_bat_dau, 1)
@@ -132,15 +121,18 @@ class BanAnToi:
         )
 
         return {
-            "so_triet_gia":     self.so_triet_gia,
-            "giai_phap":        self.giai_phap.value,
-            "dang_chay":        self.dang_chay,
-            "dang_tam_dung":    self.dang_tam_dung,
-            "toc_do":           self.toc_do,
-            "thoi_gian_chay":   thoi_gian_chay,
-            "so_deadlock":      self.so_deadlock,
+            "so_triet_gia":   self.so_triet_gia,
+            "giai_phap":      self.giai_phap.value,
+            "dang_chay":      self.dang_chay,
+            "dang_tam_dung":  self.dang_tam_dung,
+            "toc_do":         self.toc_do,
+            "thoi_gian_chay": thoi_gian_chay,
+            "so_deadlock":    self.so_deadlock,
             "triet_gia": [
                 tg.lay_thong_ke() for tg in self.triet_gia
+            ],
+            "triet_gia_cho_hien_tai": [
+                tg.lay_thoi_gian_cho_hien_tai() for tg in self.triet_gia
             ],
             "dua": [
                 {
@@ -153,30 +145,23 @@ class BanAnToi:
         }
 
     def lay_thong_ke_tong(self) -> dict:
-        """Thống kê tổng hợp để so sánh hiệu quả giữa các giải pháp."""
-        so_bua = [tg.so_bua_an for tg in self.triet_gia]
+        so_bua        = [tg.so_bua_an for tg in self.triet_gia]
         thoi_gian_cho = [tg.tong_thoi_gian_cho for tg in self.triet_gia]
-        tong_bua = sum(so_bua)
+        tong_bua      = sum(so_bua)
 
         return {
-            "giai_phap":       self.giai_phap.value,
-            "tong_bua_an":     tong_bua,
-            "trung_binh_bua":  round(tong_bua / self.so_triet_gia, 2),
-            "cho_trung_binh":  round(sum(thoi_gian_cho) / self.so_triet_gia, 2),
-            "cho_lon_nhat":    round(max(thoi_gian_cho), 2),
-            "so_deadlock":     self.so_deadlock,
-            "fairness":        round(self._tinh_fairness(so_bua), 4),
-            "tung_triet_gia":  [tg.lay_thong_ke() for tg in self.triet_gia],
+            "giai_phap":      self.giai_phap.value,
+            "tong_bua_an":    tong_bua,
+            "trung_binh_bua": round(tong_bua / self.so_triet_gia, 2),
+            "cho_trung_binh": round(sum(thoi_gian_cho) / self.so_triet_gia, 2),
+            "cho_lon_nhat":   round(max(thoi_gian_cho), 2),
+            "so_deadlock":    self.so_deadlock,
+            "fairness":       round(self._tinh_fairness(so_bua), 4),
+            "tung_triet_gia": [tg.lay_thong_ke() for tg in self.triet_gia],
         }
 
     @staticmethod
     def _tinh_fairness(gia_tri: list[int]) -> float:
-        """
-        Jain's Fairness Index — đo mức độ công bằng.
-        = 1.0  : hoàn toàn công bằng
-        → 1/N  : hoàn toàn bất công
-        Công thức: (Σxᵢ)² / (N × Σxᵢ²)
-        """
         n = len(gia_tri)
         if n == 0 or sum(gia_tri) == 0:
             return 1.0
