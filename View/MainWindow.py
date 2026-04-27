@@ -16,7 +16,7 @@ except ModuleNotFoundError:
     from View_cpu import ViewCPU            
     from ViewBoNho import ViewBoNho         
     from ViewTaskManger import ViewTaskManger       
-    from ControllerTrietGia import ControllerTrietGia             # <--- ĐÃ THÊM IMPORT
+    from Controller.ControllerTrietGia import ControllerTrietGia             # <--- ĐÃ THÊM IMPORT
 
 # ─────────────────────────────────────────────
 #  1. DPI AWARENESS
