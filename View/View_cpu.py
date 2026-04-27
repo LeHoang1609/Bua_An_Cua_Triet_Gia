@@ -62,7 +62,7 @@ class ViewCPU(tk.Frame):
         table_card = tk.Frame(top_frame, bg=BG_CARD, highlightbackground=BORDER, highlightthickness=1, padx=2, pady=2)
         table_card.pack(side="left", fill="both", expand=True, padx=(20, 0))
 
-        # --- NÂNG CẤP: ZEBRA STRIPES CHO TABLE ---
+        # --- ZEBRA STRIPES CHO TABLE ---
         style = ttk.Style()
         style.configure("Treeview", rowheight=28, font=("Segoe UI", 10))
         style.configure("Treeview.Heading", font=("Segoe UI", 10, "bold"), background="#f1f5f9", foreground=TEXT_MAIN)
@@ -143,7 +143,7 @@ class ViewCPU(tk.Frame):
     def _draw_empty_state(self):
         self.canvas.update()
         w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
-        if w > 10: # Tránh lỗi chưa render kịp
+        if w > 10: 
             self.canvas.create_text(w/2, h/2, text="🚀 Nhập tiến trình và nhấn CHẠY MÔ PHỎNG", 
                                     font=("Segoe UI", 14, "italic"), fill="#94a3b8")
 
@@ -180,7 +180,6 @@ class ViewCPU(tk.Frame):
         if not (pid and arr and bt and pr): return messagebox.showwarning("Thiếu", "Nhập đủ thông tin tiến trình!")
         try:
             float(arr); float(bt); int(pr)
-            # Áp dụng sọc ngựa vằn
             tag = "evenrow" if self.process_counter % 2 == 0 else "oddrow"
             self.tree.insert("", "end", values=(pid, arr, bt, pr), tags=(tag,))
             
@@ -214,7 +213,7 @@ class ViewCPU(tk.Frame):
         else: self._demo_gantt(processes)
 
     # ─────────────────────────────────────────────
-    #  VẼ GANTT CHART (ĐỈNH CAO UI)
+    #  VẼ GANTT CHART (ĐÃ ĐƯỢC TỐI ƯU HIỆU NĂNG)
     # ─────────────────────────────────────────────
     def update_result(self, gantt_data, awt, atat):
         self.lbl_stats.config(text=f"AWT: {awt:.2f}ms  |  ATAT: {atat:.2f}ms")
@@ -250,10 +249,7 @@ class ViewCPU(tk.Frame):
             if item["pid"] == "IDLE":
                 self.canvas.create_rectangle(x1, y1, x2, y2, fill="#f1f5f9", outline="#94a3b8", dash=(4, 4))
             else:
-                # --- NÂNG CẤP: DROP SHADOW ĐỔ BÓNG ---
-                self.canvas.create_rectangle(x1+3, y1+3, x2+3, y2+3, fill="#cbd5e1", outline="")
-                
-                # --- NÂNG CẤP: VIỀN TRẮNG SANG TRỌNG ---
+                # BỎ DROP SHADOW Ở ĐÂY ĐỂ GIẢM LOAD CHO CANVAS
                 color = color_map[item["pid"]]
                 rect = self.canvas.create_rectangle(x1, y1, x2, y2, fill=color, outline="white", width=2)
                 
@@ -265,14 +261,15 @@ class ViewCPU(tk.Frame):
                 self.canvas.tag_bind(rect, "<Leave>", self.hide_tooltip)
                 self.canvas.tag_bind(rect, "<Motion>", lambda e, txt=info: self.show_tooltip(e, txt))
 
-            # --- NÂNG CẤP: LƯỚI NỀN GRID mờ ---
+            # LƯỚI NỀN GRID mờ
             self.canvas.create_line(x2, y1 - 15, x2, y2 + 5, fill="#cbd5e1", dash=(2, 4))
             
             # Vạch thời gian
             self.canvas.create_line(x2, y2, x2, y2 + 10, fill="#334155", width=2)
             self.canvas.create_text(x2, y2 + 20, text=f"{item['end']:g}", font=("Segoe UI", 9, "bold"))
 
-            self.anim_id = self.after(300, lambda: draw_step(index + 1))
+            # TĂNG DELAY ANIMATION LÊN 700ms GIÚP APP MƯỢT HƠN
+            self.anim_id = self.after(700, lambda: draw_step(index + 1))
 
         draw_step(0)
 
